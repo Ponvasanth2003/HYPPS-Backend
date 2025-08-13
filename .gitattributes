@@ -1,0 +1,24 @@
+/mvnw text eol=lf
+*.cmd text eol=crlf
+
+# Force LF for all text files
+* text=auto eol=lf
+
+# Java source files
+*.java text eol=lf
+
+# Maven/Gradle configs
+pom.xml text eol=lf
+*.gradle text eol=lf
+
+# Properties and YAML configs
+*.properties text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Shell scripts (must be LF for Linux)
+*.sh text eol=lf
+
+# Batch files (Windows scripts keep CRLF)
+*.cmd text eol=crlf
+*.bat text eol=crlf
