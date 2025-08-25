@@ -1,10 +1,13 @@
 package com.HYYPS.HYYPS_Backend.userauth.repository;
 
 import com.HYYPS.HYYPS_Backend.userauth.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Repository
@@ -16,4 +19,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u FROM User u WHERE u.email = ?1 AND u.isActive = true")
     Optional<User> findActiveUserByEmail(String email);
+
+    Page<User> findByNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
+            String name, String email, Pageable pageable);
+
+    long countByIsActiveTrue();
+
+    long countByIsEmailVerifiedTrue();
+
+    long countByCreatedAtAfter(LocalDateTime since);
 }

@@ -3,6 +3,8 @@ package com.HYYPS.HYYPS_Backend.userauth.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
+import java.util.List;
+import jakarta.validation.constraints.NotEmpty;
 
 @Data
 @Schema(description = "Student onboarding request")
@@ -16,8 +18,8 @@ public class StudentOnboardingDto {
     private String name;
 
     @Schema(description = "Interested subjects", example = "Mathematics, Physics", required = true)
-    @NotBlank(message = "Interested subjects are required")
-    private String interestedSubjects;
+    @NotEmpty(message = "Interested subjects are required")
+    private List<String> interestedSubjects;
 
     @Schema(description = "Learning preference level", example = "BEGINNER", required = true)
     @NotBlank(message = "Learning preference is required")

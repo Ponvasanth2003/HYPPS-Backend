@@ -100,7 +100,12 @@ public class OnboardingService {
         onboarding.setRole(studentRole);
         onboarding.setProfilePhoto(request.getProfilePhoto());
         onboarding.setFullName(request.getName());
-        onboarding.setInterestedSubjects(request.getInterestedSubjects());
+
+        // Convert List<String> to comma-separated String
+        String interestedSubjectsStr = request.getInterestedSubjects() != null ?
+                String.join(",", request.getInterestedSubjects()) : null;
+        onboarding.setInterestedSubjects(interestedSubjectsStr);
+
         onboarding.setLearningPreference(request.getLearningPreference());
         onboarding.setPreferredLearningType(request.getPreferredLearningType());
         onboarding.setReadyToStart(request.getReadyToStart());

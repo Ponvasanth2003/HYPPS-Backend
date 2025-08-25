@@ -21,8 +21,12 @@ public class RoleService {
 
     private final RoleRepository roleRepository;
 
+    /**
+     * FIXED: Cache only the data (List<RoleDto>), not the entire ApiResponseDto
+     * This prevents serialization issues with ResponseEntity
+     */
     @Cacheable(value = "roles", key = "'all-roles'")
-    public ApiResponseDto<List<RoleDto>> getAllRoles() {
+    public List<RoleDto> getAllRolesData() {
         try {
             List<RoleEntity> roles = roleRepository.findAll();
 
@@ -31,6 +35,21 @@ public class RoleService {
                     .collect(Collectors.toList());
 
             log.info("Retrieved {} roles from database", roleDtos.size());
+            return roleDtos;
+        } catch (Exception e) {
+            log.error("Failed to retrieve roles from database", e);
+            throw new RuntimeException("Failed to retrieve roles", e);
+        }
+    }
+
+    /**
+     * Public method that wraps the cached data in ApiResponseDto
+     * This method is NOT cached to avoid serialization issues
+     */
+    public ApiResponseDto<List<RoleDto>> getAllRoles() {
+        try {
+            List<RoleDto> roleDtos = getAllRolesData();
+            log.info("Returning {} roles (from cache or database)", roleDtos.size());
             return ApiResponseDto.success("Roles retrieved successfully", roleDtos);
         } catch (Exception e) {
             log.error("Failed to retrieve roles", e);
