@@ -89,6 +89,26 @@ spring:
           starttls:
             enable: true
             required: true
+    templates:
+      profile-verified: "profile-verified"
+      profile-rejected: "profile-rejected"
+      kyc-verified: "kyc-verified"
+      kyc-rejected: "kyc-rejected"
+      verification-expired: "verification-expired"
+      verification-reminder: "verification-reminder"
+
+  # Caching Configuration
+  cache:
+    redis:
+      time-to-live: 1800000 # 30 minutes in milliseconds
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=30m
+
+  # Scheduling
+  task:
+    scheduling:
+      pool:
+        size: 4
 
 resilience4j:
   circuitbreaker:
@@ -165,6 +185,17 @@ app:
       signup-otp: signup-otp-requests
       otp-retry: signup-otp-retry
       otp-result: signup-otp-result
+
+  # Teacher Verification Settings
+  verification:
+    timer-days: 2
+    max-retry-attempts: 10
+    auto-reject-expired: true
+
+  file-upload:
+    max-size: 10MB
+    allowed-types: image/jpeg,image/png,image/jpg,application/pdf,video/mp4,video/avi
+    s3-bucket: teacher-verification-files
 
 management:
   endpoints:

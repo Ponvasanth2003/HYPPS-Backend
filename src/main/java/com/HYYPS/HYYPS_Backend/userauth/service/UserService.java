@@ -219,6 +219,9 @@ public class UserService {
         profileData.put("id", user.getId());
         profileData.put("name", user.getName());
         profileData.put("email", user.getEmail());
+        profileData.put("phoneNumber", user.getPhoneNumber()); // ADDED
+        profileData.put("dateOfBirth", user.getDateOfBirth()); // ADDED
+        profileData.put("profilePicture", user.getProfilePicture()); // ADDED
         profileData.put("isEmailVerified", user.getIsEmailVerified());
         profileData.put("createdAt", user.getCreatedAt());
         profileData.put("lastLogin", user.getLastLogin());

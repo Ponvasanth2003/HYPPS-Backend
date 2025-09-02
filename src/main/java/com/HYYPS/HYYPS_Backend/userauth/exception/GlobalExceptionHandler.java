@@ -57,6 +57,14 @@ public class GlobalExceptionHandler {
                 .body(ApiResponseDto.error(ex.getMessage()));
     }
 
+    @ExceptionHandler(VerificationException.class)
+    public ResponseEntity<ApiResponseDto<Void>> handleVerificationException(VerificationException ex, WebRequest request) {
+        log.error("Verification error: {}", ex.getMessage());
+        securityEventLogger.logSecurityEvent("VERIFICATION_ERROR", ex.getMessage(), getClientIp(request));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponseDto.error(ex.getMessage()));
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponseDto<Void>> handleAuthenticationException(AuthenticationException ex, WebRequest request) {
         log.error("Authentication failed: {}", ex.getMessage());

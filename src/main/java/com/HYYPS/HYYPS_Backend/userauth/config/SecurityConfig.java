@@ -56,6 +56,15 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/logout", "/api/auth/refresh-token").authenticated()
                         .requestMatchers("/api/health", "/actuator/**").permitAll()
                         .requestMatchers("/api/auth/roles").permitAll()
+
+                        // NEW: Teacher verification endpoints
+                        .requestMatchers("/api/teacher/verification/**").hasRole("TEACHER")
+                        .requestMatchers("/api/kyc/**").hasRole("TEACHER")
+
+                        // NEW: Admin verification endpoints
+                        .requestMatchers("/api/admin/verifications/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/kyc/**").hasRole("ADMIN")
+
                         .requestMatchers(
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",

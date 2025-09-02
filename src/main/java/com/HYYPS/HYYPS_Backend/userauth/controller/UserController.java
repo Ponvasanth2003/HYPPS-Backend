@@ -71,7 +71,7 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
-    // ===== EXISTING ENDPOINTS =====
+    // ===== PROFILE MANAGEMENT ENDPOINTS =====
 
     @GetMapping("/profile")
     @Operation(
@@ -161,6 +161,8 @@ public class UserController {
         return ResponseEntity.ok(ApiResponseDto.error("This endpoint is deprecated. Use the new email update flow with OTP verification."));
     }
 
+    // ===== ROLE MANAGEMENT ENDPOINTS =====
+
     @PostMapping("/role")
     @Operation(
             summary = "Assign role to user",
@@ -246,31 +248,6 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/onboarding/{roleId}")
-    @Operation(
-            summary = "Complete role onboarding",
-            description = "Mark onboarding as completed for a specific role"
-    )
-    public ResponseEntity<ApiResponseDto<Void>> completeOnboarding(
-            @Parameter(description = "Role ID to complete onboarding for")
-            @PathVariable Long roleId) {
-        log.info("Onboarding completion request for roleId: {}", roleId);
-        ApiResponseDto<Void> response = userService.completeOnboarding(roleId);
-        return ResponseEntity.ok(response);
-    }
-
-    @PostMapping("/deactivate")
-    @Operation(
-            summary = "Deactivate user account",
-            description = "Deactivate current user's account with password verification"
-    )
-    public ResponseEntity<ApiResponseDto<Void>> deactivateAccount(
-            @Valid @RequestBody DeactivateAccountRequestDto request) {
-        log.info("Account deactivation request received");
-        ApiResponseDto<Void> response = userService.deactivateAccount(request);
-        return ResponseEntity.ok(response);
-    }
-
     @DeleteMapping("/role/{roleId}")
     @Operation(
             summary = "Remove role from user",
@@ -303,6 +280,20 @@ public class UserController {
 
         log.info("Role removal request for roleId: {}", roleId);
         ApiResponseDto<Map<String, Object>> response = userService.removeRole(roleId);
+        return ResponseEntity.ok(response);
+    }
+
+    // ===== ACCOUNT MANAGEMENT ENDPOINTS =====
+
+    @PostMapping("/deactivate")
+    @Operation(
+            summary = "Deactivate user account",
+            description = "Deactivate current user's account with password verification"
+    )
+    public ResponseEntity<ApiResponseDto<Void>> deactivateAccount(
+            @Valid @RequestBody DeactivateAccountRequestDto request) {
+        log.info("Account deactivation request received");
+        ApiResponseDto<Void> response = userService.deactivateAccount(request);
         return ResponseEntity.ok(response);
     }
 

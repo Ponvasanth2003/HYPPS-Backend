@@ -52,8 +52,8 @@ public class OnboardingEntity {
     @Column(name = "has_certificate")
     private Boolean hasCertificate;
 
-//    @Column(name = "certificate_url")
-//    private String certificateUrl;               ---- bending for AWS
+    @Column(name = "certificate_url")
+    private String certificateUrl;
 
     @Column(name = "teaching_video_url")
     private String teachingVideoUrl;
@@ -93,6 +93,16 @@ public class OnboardingEntity {
 
     @Column(name = "is_completed", nullable = false)
     private Boolean isCompleted = false;
+
+    // NEW FIELDS FOR VERIFICATION SYSTEM
+    @Column(name = "timer_started_at")
+    private LocalDateTime timerStartedAt;
+
+    @Column(name = "timer_expires_at")
+    private LocalDateTime timerExpiresAt;
+
+    @Column(name = "can_create_paid_classes", nullable = false)
+    private Boolean canCreatePaidClasses = false;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

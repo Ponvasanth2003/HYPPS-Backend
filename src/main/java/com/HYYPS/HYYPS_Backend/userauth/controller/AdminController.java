@@ -2,7 +2,9 @@ package com.HYYPS.HYYPS_Backend.userauth.controller;
 
 import com.HYYPS.HYYPS_Backend.userauth.dto.*;
 import com.HYYPS.HYYPS_Backend.userauth.service.AdminService;
+import com.HYYPS.HYYPS_Backend.userauth.service.KycService;
 import com.HYYPS.HYYPS_Backend.userauth.service.SecurityService;
+import com.HYYPS.HYYPS_Backend.userauth.service.TeacherVerificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -29,6 +31,8 @@ public class AdminController {
 
     private final AdminService adminService;
     private final SecurityService securityService;
+    private final TeacherVerificationService teacherVerificationService;
+    private final KycService kycService;
 
     // =============================================================================
     // USER MANAGEMENT
@@ -157,6 +161,64 @@ public class AdminController {
             @PathVariable Long roleId) {
         log.info("Admin removing role {} from user {}", roleId, userId);
         ApiResponseDto<Void> response = adminService.removeRoleFromUser(userId, roleId);
+        return ResponseEntity.ok(response);
+    }
+
+    // =============================================================================
+    // TEACHER VERIFICATION MANAGEMENT
+    // =============================================================================
+
+    @GetMapping("/verifications/pending")
+    @Operation(summary = "Get pending teacher verifications", description = "Retrieve all pending teacher profile verifications")
+    public ResponseEntity<ApiResponseDto<Map<String, Object>>> getPendingVerifications(
+            @Parameter(description = "Page number")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size")
+            @RequestParam(defaultValue = "20") int size) {
+
+        log.info("Admin requesting pending verifications - page: {}, size: {}", page, size);
+        ApiResponseDto<Map<String, Object>> response = teacherVerificationService.getPendingVerifications(page, size);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verifications/{verificationId}")
+    @Operation(summary = "Verify or reject teacher profile", description = "Admin action to verify or reject teacher profile")
+    public ResponseEntity<ApiResponseDto<Map<String, Object>>> verifyProfile(
+            @Parameter(description = "Verification ID")
+            @PathVariable Long verificationId,
+            @Valid @RequestBody ProfileVerificationRequestDto request) {
+
+        log.info("Admin {} profile for verificationId: {}", request.getAction().toLowerCase(), verificationId);
+        ApiResponseDto<Map<String, Object>> response = teacherVerificationService.verifyProfile(verificationId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    // =============================================================================
+    // KYC MANAGEMENT
+    // =============================================================================
+
+    @GetMapping("/kyc/pending")
+    @Operation(summary = "Get pending KYC submissions", description = "Retrieve all pending KYC submissions for admin review")
+    public ResponseEntity<ApiResponseDto<Map<String, Object>>> getPendingKycSubmissions(
+            @Parameter(description = "Page number")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size")
+            @RequestParam(defaultValue = "20") int size) {
+
+        log.info("Admin requesting pending KYC submissions - page: {}, size: {}", page, size);
+        ApiResponseDto<Map<String, Object>> response = kycService.getPendingKycSubmissions(page, size);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/kyc/{kycId}/verify")
+    @Operation(summary = "Verify or reject KYC submission", description = "Admin action to verify or reject KYC documents")
+    public ResponseEntity<ApiResponseDto<Map<String, Object>>> verifyKyc(
+            @Parameter(description = "KYC submission ID")
+            @PathVariable Long kycId,
+            @Valid @RequestBody KycVerificationRequestDto request) {
+
+        log.info("Admin {} KYC for kycId: {}", request.getAction().toLowerCase(), kycId);
+        ApiResponseDto<Map<String, Object>> response = kycService.verifyKyc(kycId, request);
         return ResponseEntity.ok(response);
     }
 
