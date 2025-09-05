@@ -53,9 +53,11 @@ spring:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
+  # Redis Configuration - Enhanced for Session Management
   redis:
-    host: redis
-    port: 6379
+    host: ${REDIS_HOST:redis}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
     timeout: 2000ms
     lettuce:
       pool:
@@ -63,19 +65,19 @@ spring:
         max-idle: 8
         min-idle: 0
 
-  #  spring:
-  #    redis:
-  #      cluster:
-  #        nodes:
-  #          - redis-node1.example.com:6379
-  #          - redis-node2.example.com:6379
-  #          - redis-node3.example.com:6379
-  #      timeout: 6000ms
-  #      lettuce:
-  #        pool:
-  #          max-active: 20
-  #          max-idle: 10
-  #          min-idle: 5
+  # Enhanced Redis Configuration (alternative cluster setup - commented)
+  #  redis:
+  #    cluster:
+  #      nodes:
+  #        - redis-node1.example.com:6379
+  #        - redis-node2.example.com:6379
+  #        - redis-node3.example.com:6379
+  #    timeout: 6000ms
+  #    lettuce:
+  #      pool:
+  #        max-active: 20
+  #        max-idle: 10
+  #        min-idle: 5
 
   mail:
     host: smtp.gmail.com
@@ -110,6 +112,26 @@ spring:
       pool:
         size: 4
 
+  # ========== NEW SECURITY CONFIGURATIONS ==========
+
+  # Security Configuration - Enhanced
+  security:
+    require-ssl: ${REQUIRE_SSL:false}
+
+  # Data Redis Configuration (if using Spring Session)
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+# Circuit Breaker Configuration
 resilience4j:
   circuitbreaker:
     instances:
@@ -130,6 +152,7 @@ resilience4j:
         wait-duration: 500ms                     # retry faster
         exponential-backoff-multiplier: 1.5      # mild backoff
 
+# Server Configuration - Enhanced with Cookie Security
 server:
   port: 8080
   servlet:
@@ -137,7 +160,24 @@ server:
     multipart:
       max-file-size: 50MB
       max-request-size: 50MB
+    # ========== NEW: Session Cookie Configuration ==========
+    session:
+      cookie:
+        http-only: true
+        secure: ${COOKIE_SECURE:true}
+        same-site: strict
+        max-age: 86400  # 24 hours
+        path: /
+        name: JSESSIONID
 
+  # ========== NEW: SSL Configuration ==========
+  ssl:
+    enabled: ${SSL_ENABLED:false}
+    key-store: ${SSL_KEYSTORE:}
+    key-store-password: ${SSL_KEYSTORE_PASSWORD:}
+    key-store-type: PKCS12
+
+# Swagger Documentation
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -159,10 +199,13 @@ springdoc:
     - group: 'User Management API'
       paths-to-match: '/api/user/**'
 
+# Logging Configuration - Enhanced for Security
 logging:
   level:
     com.HYYPS.HYYPS_Backend: DEBUG
-    org.springframework.security: DEBUG
+    # ========== NEW: Enhanced Security Logging ==========
+    com.HYYPS.HYYPS_Backend.userauth.security: DEBUG
+    org.springframework.security: INFO  # Changed from DEBUG to INFO for production
     org.springframework.web: DEBUG
     org.springframework.mail: DEBUG
     io.swagger: INFO
@@ -174,11 +217,26 @@ logging:
   pattern:
     console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
 
+# ========== NEW: Application-Specific Configurations ==========
+
+# JWT and Cookie Security Configuration
 app:
   name: "HYYPS Learning Platform"
+
+  # ========== ENHANCED JWT Configuration ==========
   jwt:
-    secret: "mySecretKeyForJWTTokenGenerationThatShouldBeAtLeast256BitsLong"
+    secret: ${JWT_SECRET:mySecretKeyForJWTTokenGenerationThatShouldBeAtLeast256BitsLong}
     expiration: 86400000 # 24 hours in milliseconds
+    refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000} # 7 days in milliseconds
+
+  # ========== NEW: Cookie Security Configuration ==========
+  cookie:
+    secure: ${COOKIE_SECURE:true}
+    domain: ${COOKIE_DOMAIN:}
+    path: ${COOKIE_PATH:/}
+
+  # ========== NEW: Environment Configuration ==========
+  environment: ${ENVIRONMENT:production}
 
   kafka:
     topics:
@@ -197,6 +255,22 @@ app:
     allowed-types: image/jpeg,image/png,image/jpg,application/pdf,video/mp4,video/avi
     s3-bucket: teacher-verification-files
 
+# ========== NEW: Security Headers Configuration ==========
+security:
+  headers:
+    frame: false  # X-Frame-Options: DENY
+    content-type: true  # X-Content-Type-Options: nosniff
+    xss: true  # X-XSS-Protection: 1; mode=block
+
+# ========== NEW: CORS Configuration for Cookie Support ==========
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,https://localhost:3000}
+  allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,PATCH,OPTIONS}
+  allowed-headers: ${CORS_ALLOWED_HEADERS:*}
+  allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
+  max-age: ${CORS_MAX_AGE:3600}
+
+# Management and Monitoring
 management:
   endpoints:
     web:
@@ -214,6 +288,7 @@ management:
     db:
       enabled: true
 
+# AWS Configuration
 aws:
   s3:
     access-key: YOUR_AWS_ACCESS_KEY
@@ -222,6 +297,7 @@ aws:
     bucket-name: hyyps-file-storage
     base-url: https://hyyps-file-storage.s3.amazonaws.com
 
+# SQL Initialization
 sql:
   init:
     mode: always
