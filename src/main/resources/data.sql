@@ -4,50 +4,73 @@ INSERT INTO roles (role_id, role_name, is_active) VALUES
 (3, 'ADMIN', true)
 ON CONFLICT (role_id) DO NOTHING;
 
-CREATE TABLE teacher_verification (
-    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    user_id BIGINT NOT NULL REFERENCES users(id),
-    has_certificate BOOLEAN NOT NULL,
-    certificate_url VARCHAR(500),
-    teaching_video_url VARCHAR(500),
-    current_submission_type VARCHAR(20) CHECK (current_submission_type IN ('CERTIFICATE', 'VIDEO')),
-    profile_verification_status VARCHAR(20) DEFAULT 'PENDING'
-        CHECK (profile_verification_status IN ('PENDING', 'VERIFIED', 'REJECTED')),
-    kyc_status VARCHAR(20) DEFAULT 'NOT_STARTED'
-        CHECK (kyc_status IN ('NOT_STARTED', 'PENDING', 'VERIFIED', 'REJECTED')),
-    is_verified BOOLEAN DEFAULT FALSE,
-    verified_at TIMESTAMP,
-    timer_started_at TIMESTAMP NOT NULL,
-    timer_completed_at TIMESTAMP,
-    second_chance_allowed BOOLEAN DEFAULT TRUE,
+-- Create teacher_verifications table
+CREATE TABLE teacher_verifications (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    submission_type ENUM('CERTIFICATE', 'VIDEO') NOT NULL,
+    file_url VARCHAR(500) NOT NULL,
+    profile_verification_status ENUM('PENDING', 'VERIFIED', 'REJECTED') DEFAULT 'PENDING',
     rejection_reason TEXT,
-    admin_notes TEXT,
-    can_create_paid_classes BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    verified_at DATETIME,
+    verified_by BIGINT,
+    timer_started_at DATETIME NOT NULL,
+    timer_expires_at DATETIME NOT NULL,
+    second_chance_allowed BOOLEAN DEFAULT FALSE,
+    retry_count INT DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_user_verification (user_id),
+    INDEX idx_verification_status (profile_verification_status),
+    INDEX idx_timer_expires (timer_expires_at)
 );
 
-CREATE TABLE kyc_documents (
-    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    user_id BIGINT NOT NULL REFERENCES users(id),
+-- Create kyc_submissions table
+CREATE TABLE kyc_submissions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
     govt_id_url VARCHAR(500) NOT NULL,
     bank_proof_url VARCHAR(500) NOT NULL,
     selfie_with_id_url VARCHAR(500),
-    kyc_status VARCHAR(20) DEFAULT 'PENDING'
-        CHECK (kyc_status IN ('PENDING', 'VERIFIED', 'REJECTED')),
-    admin_notes TEXT,
+    kyc_status ENUM('PENDING', 'VERIFIED', 'REJECTED') DEFAULT 'PENDING',
     rejection_reason TEXT,
-    verified_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    verified_at DATETIME,
+    verified_by BIGINT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_user_kyc (user_id),
+    INDEX idx_kyc_status (kyc_status)
 );
 
-CREATE TABLE verification_timeline (
-    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    user_id BIGINT NOT NULL REFERENCES users(id),
-    action_type VARCHAR(50) NOT NULL,
-    description TEXT NOT NULL,
-    admin_id BIGINT REFERENCES users(id),
-    metadata JSONB,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+-- Add new columns to onboarding_data table
+ALTER TABLE onboarding_data
+ADD COLUMN timer_started_at DATETIME,
+ADD COLUMN timer_expires_at DATETIME,
+ADD COLUMN can_create_paid_classes BOOLEAN DEFAULT FALSE;
+
+-- Add indexes for performance
+ALTER TABLE onboarding_data
+ADD INDEX idx_timer_expires (timer_expires_at),
+ADD INDEX idx_can_create_paid (can_create_paid_classes);
+
+-- Add new fields to users table
+ALTER TABLE users ADD COLUMN phone_number VARCHAR(20);
+ALTER TABLE users ADD COLUMN date_of_birth DATE;
+ALTER TABLE users ADD COLUMN profile_picture VARCHAR(500);
+
+-- Create security_events table
+CREATE TABLE security_events (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    event_type VARCHAR(100) NOT NULL,
+    user_email VARCHAR(150),
+    client_ip VARCHAR(45),
+    details VARCHAR(1000),
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    severity VARCHAR(20),
+    user_agent VARCHAR(500),
+    session_id VARCHAR(100)
 );

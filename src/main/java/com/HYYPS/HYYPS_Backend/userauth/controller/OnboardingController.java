@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,8 +23,7 @@ import java.util.Map;
 @RequestMapping("/api/onboarding")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "onboarding-api", description = "Handles User Onboarding APIs")
-@SecurityRequirement(name = "Bearer Authentication")
+@Tag(name = "onboarding-api", description = "User Onboarding APIs - Uses HttpOnly Cookie Authentication")
 public class OnboardingController {
 
     private final OnboardingService onboardingService;
@@ -35,7 +33,7 @@ public class OnboardingController {
     @PostMapping("/role/{roleId}")
     @Operation(
             summary = "Submit onboarding for specific role",
-            description = "Submit onboarding form (teacher or student) based on role ID"
+            description = "Submit onboarding form (teacher or student) based on role ID. Authentication via HttpOnly cookie."
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -82,7 +80,7 @@ public class OnboardingController {
                     )
             ),
             @ApiResponse(responseCode = "400", description = "Invalid onboarding data or role mismatch"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing HttpOnly cookie"),
             @ApiResponse(responseCode = "404", description = "Role not found or not assigned to user")
     })
     public ResponseEntity<ApiResponseDto<Map<String, Object>>> submitOnboarding(
@@ -149,7 +147,7 @@ public class OnboardingController {
     @PostMapping("/complete/{roleId}")
     @Operation(
             summary = "Complete onboarding for specific role",
-            description = "Mark onboarding as completed for a specific role ID"
+            description = "Mark onboarding as completed for a specific role ID. Authentication via HttpOnly cookie."
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -173,7 +171,7 @@ public class OnboardingController {
                     )
             ),
             @ApiResponse(responseCode = "400", description = "Onboarding already completed"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing HttpOnly cookie"),
             @ApiResponse(responseCode = "404", description = "Role not found or not assigned to user")
     })
     public ResponseEntity<ApiResponseDto<Map<String, Object>>> completeOnboarding(
@@ -190,7 +188,7 @@ public class OnboardingController {
     @PostMapping("/class-discovery")
     @Operation(
             summary = "Process class discovery form",
-            description = "Process class discovery form when student chooses 'Yes, let's find classes!'"
+            description = "Process class discovery form when student chooses 'Yes, let's find classes!'. Authentication via HttpOnly cookie."
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -215,7 +213,7 @@ public class OnboardingController {
                     """)
                     )
             ),
-            @ApiResponse(responseCode = "401", description = "Unauthorized")
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing HttpOnly cookie")
     })
     public ResponseEntity<ApiResponseDto<Map<String, Object>>> processClassDiscovery(
             @Valid @RequestBody ClassDiscoveryDto request) {
@@ -230,7 +228,7 @@ public class OnboardingController {
     @GetMapping("/role/{roleId}")
     @Operation(
             summary = "Get onboarding data by role ID",
-            description = "Retrieve existing onboarding data for a specific role ID"
+            description = "Retrieve existing onboarding data for a specific role ID. Authentication via HttpOnly cookie."
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -309,7 +307,7 @@ public class OnboardingController {
                     """)
                     )
             ),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing HttpOnly cookie"),
             @ApiResponse(responseCode = "404", description = "Role not found or not assigned to user")
     })
     public ResponseEntity<ApiResponseDto<Map<String, Object>>> getOnboardingData(
@@ -324,7 +322,7 @@ public class OnboardingController {
     @GetMapping("/status/{roleId}")
     @Operation(
             summary = "Get onboarding status for role",
-            description = "Check if onboarding is completed for a specific role ID"
+            description = "Check if onboarding is completed for a specific role ID. Authentication via HttpOnly cookie."
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -348,7 +346,7 @@ public class OnboardingController {
                     """)
                     )
             ),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing HttpOnly cookie"),
             @ApiResponse(responseCode = "404", description = "Role not found or not assigned to user")
     })
     public ResponseEntity<ApiResponseDto<Map<String, Object>>> getOnboardingStatus(

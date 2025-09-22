@@ -9,9 +9,10 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,7 +26,6 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "user-management-api", description = "Handles User Management APIs")
-@SecurityRequirement(name = "Bearer Authentication")
 public class UserController {
 
     private final UserService userService;
@@ -44,12 +44,19 @@ public class UserController {
     })
     public ResponseEntity<ApiResponseDto<Void>> initiateEmailUpdate(
             @Valid @RequestBody InitiateEmailUpdateRequestDto request,
-            HttpServletRequest httpRequest) {
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
 
         String clientIp = getClientIp(httpRequest);
         log.info("Email update initiation request received for new email: {}", request.getNewEmail());
 
         ApiResponseDto<Void> response = userService.initiateEmailUpdate(request, clientIp);
+
+        // Set HttpOnly and Secure cookie if needed
+        if (response.isSuccess()) {
+            setSecureCookie(httpResponse, "email-update-session", "active", 900); // 15 minutes
+        }
+
         return ResponseEntity.ok(response);
     }
 
@@ -64,10 +71,17 @@ public class UserController {
             @ApiResponse(responseCode = "401", description = "Unauthorized")
     })
     public ResponseEntity<ApiResponseDto<Void>> confirmEmailUpdate(
-            @Valid @RequestBody ConfirmEmailUpdateRequestDto request) {
+            @Valid @RequestBody ConfirmEmailUpdateRequestDto request,
+            HttpServletResponse httpResponse) {
 
         log.info("Email update confirmation request received for email: {}", request.getNewEmail());
         ApiResponseDto<Void> response = userService.confirmEmailUpdate(request);
+
+        // Clear email update session cookie
+        if (response.isSuccess()) {
+            clearCookie(httpResponse, "email-update-session");
+        }
+
         return ResponseEntity.ok(response);
     }
 
@@ -111,10 +125,13 @@ public class UserController {
                     """)
                     )
             ),
-            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing token"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing authentication cookie"),
             @ApiResponse(responseCode = "404", description = "User not found")
     })
-    public ResponseEntity<ApiResponseDto<Map<String, Object>>> getCurrentUserProfile() {
+    public ResponseEntity<ApiResponseDto<Map<String, Object>>> getCurrentUserProfile(
+            HttpServletRequest request) {
+
+        // Authentication is handled by JWT filter using cookies
         ApiResponseDto<Map<String, Object>> response = userService.getCurrentUserProfile();
         return ResponseEntity.ok(response);
     }
@@ -142,9 +159,16 @@ public class UserController {
             description = "Change current user's password with current password verification"
     )
     public ResponseEntity<ApiResponseDto<Void>> changePassword(
-            @Valid @RequestBody ChangePasswordRequestDto request) {
+            @Valid @RequestBody ChangePasswordRequestDto request,
+            HttpServletResponse httpResponse) {
         log.info("Password change request received");
         ApiResponseDto<Void> response = userService.changePassword(request);
+
+        // Set a temporary cookie to indicate password change
+        if (response.isSuccess()) {
+            setSecureCookie(httpResponse, "password-changed", "true", 300); // 5 minutes
+        }
+
         return ResponseEntity.ok(response);
     }
 
@@ -203,10 +227,17 @@ public class UserController {
                         }
                         """)
                     )
-            ) RoleRequestDto request) {
+            ) RoleRequestDto request,
+            HttpServletResponse httpResponse) {
 
         log.info("Role assignment request for roleId: {}", request.getRoleId());
         ApiResponseDto<Map<String, Object>> response = userService.assignRole(request.getRoleId());
+
+        // Set a cookie to track role assignment
+        if (response.isSuccess()) {
+            setSecureCookie(httpResponse, "role-assigned", String.valueOf(request.getRoleId()), 3600); // 1 hour
+        }
+
         return ResponseEntity.ok(response);
     }
 
@@ -240,7 +271,7 @@ public class UserController {
                     """)
                     )
             ),
-            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing token"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing authentication cookie"),
             @ApiResponse(responseCode = "404", description = "User not found")
     })
     public ResponseEntity<ApiResponseDto<Map<String, Object>>> getUserRoles() {
@@ -276,10 +307,17 @@ public class UserController {
     })
     public ResponseEntity<ApiResponseDto<Map<String, Object>>> removeRole(
             @Parameter(description = "Role ID to remove", example = "2")
-            @PathVariable Long roleId) {
+            @PathVariable Long roleId,
+            HttpServletResponse httpResponse) {
 
         log.info("Role removal request for roleId: {}", roleId);
         ApiResponseDto<Map<String, Object>> response = userService.removeRole(roleId);
+
+        // Clear role-related cookies
+        if (response.isSuccess()) {
+            clearCookie(httpResponse, "role-assigned");
+        }
+
         return ResponseEntity.ok(response);
     }
 
@@ -291,13 +329,24 @@ public class UserController {
             description = "Deactivate current user's account with password verification"
     )
     public ResponseEntity<ApiResponseDto<Void>> deactivateAccount(
-            @Valid @RequestBody DeactivateAccountRequestDto request) {
+            @Valid @RequestBody DeactivateAccountRequestDto request,
+            HttpServletResponse httpResponse) {
         log.info("Account deactivation request received");
         ApiResponseDto<Void> response = userService.deactivateAccount(request);
+
+        // Clear all user-related cookies on deactivation
+        if (response.isSuccess()) {
+            clearCookie(httpResponse, "auth-token");
+            clearCookie(httpResponse, "refresh-token");
+            clearCookie(httpResponse, "role-assigned");
+            clearCookie(httpResponse, "email-update-session");
+            clearCookie(httpResponse, "password-changed");
+        }
+
         return ResponseEntity.ok(response);
     }
 
-    // ===== UTILITY METHOD =====
+    // ===== UTILITY METHODS =====
 
     private String getClientIp(HttpServletRequest request) {
         String xForwardedFor = request.getHeader("X-Forwarded-For");
@@ -309,5 +358,30 @@ public class UserController {
             return xRealIp;
         }
         return request.getRemoteAddr();
+    }
+
+    /**
+     * Set a secure HttpOnly cookie
+     */
+    private void setSecureCookie(HttpServletResponse response, String name, String value, int maxAge) {
+        Cookie cookie = new Cookie(name, value);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(maxAge);
+        cookie.setAttribute("SameSite", "Strict");
+        response.addCookie(cookie);
+    }
+
+    /**
+     * Clear a cookie by setting its max age to 0
+     */
+    private void clearCookie(HttpServletResponse response, String name) {
+        Cookie cookie = new Cookie(name, "");
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        response.addCookie(cookie);
     }
 }

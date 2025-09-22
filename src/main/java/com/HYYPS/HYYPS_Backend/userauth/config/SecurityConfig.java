@@ -15,8 +15,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
-import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 
 @Configuration
 @EnableWebSecurity
@@ -43,9 +41,6 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        CsrfTokenRequestAttributeHandler requestHandler = new CsrfTokenRequestAttributeHandler();
-        requestHandler.setCsrfRequestAttributeName("_csrf");
-
         http
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -53,17 +48,22 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/signup", "/api/auth/verify-otp", "/api/auth/login",
                                 "/api/auth/resend-otp", "/api/auth/forgot-password",
                                 "/api/auth/reset-password", "/api/auth/social-login").permitAll()
-                        .requestMatchers("/api/auth/logout", "/api/auth/refresh-token").authenticated()
+                        .requestMatchers("/api/auth/logout", "/api/auth/refresh-token", "/api/auth/session-status").authenticated()
                         .requestMatchers("/api/health", "/actuator/**").permitAll()
                         .requestMatchers("/api/auth/roles").permitAll()
 
-                        // NEW: Teacher verification endpoints
+                        // Teacher verification endpoints
                         .requestMatchers("/api/teacher/verification/**").hasRole("TEACHER")
                         .requestMatchers("/api/kyc/**").hasRole("TEACHER")
 
-                        // NEW: Admin verification endpoints
+                        // Admin verification endpoints
                         .requestMatchers("/api/admin/verifications/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/kyc/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // User management endpoints
+                        .requestMatchers("/api/user/**").authenticated()
+                        .requestMatchers("/api/onboarding/**").authenticated()
 
                         .requestMatchers(
                                 "/swagger-ui/**",
@@ -77,7 +77,7 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
                 .csrf(csrf -> csrf
-                        .ignoringRequestMatchers("/api/**")  // 🔥 Disable CSRF for all API routes
+                        .ignoringRequestMatchers("/api/**")  // Disable CSRF for all API routes
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

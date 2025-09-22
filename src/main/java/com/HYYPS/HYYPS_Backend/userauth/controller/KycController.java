@@ -8,7 +8,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -25,8 +24,7 @@ import java.util.Map;
 @RequestMapping("/api/kyc")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "kyc-api", description = "KYC Document Management APIs")
-@SecurityRequirement(name = "Bearer Authentication")
+@Tag(name = "kyc-api", description = "KYC Document Management APIs - Uses HttpOnly Cookie Authentication")
 public class KycController {
 
     private final KycService kycService;
@@ -35,7 +33,7 @@ public class KycController {
     @PostMapping("/upload")
     @Operation(
             summary = "Upload KYC documents",
-            description = "Upload government ID, bank proof, and optional selfie for KYC verification"
+            description = "Upload government ID, bank proof, and optional selfie for KYC verification. Authentication via HttpOnly cookie."
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -58,7 +56,8 @@ public class KycController {
                     )
             ),
             @ApiResponse(responseCode = "400", description = "Profile verification required first"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing HttpOnly cookie"),
+            @ApiResponse(responseCode = "403", description = "Teacher role required"),
             @ApiResponse(responseCode = "429", description = "Rate limit exceeded")
     })
     @PreAuthorize("hasRole('TEACHER')")

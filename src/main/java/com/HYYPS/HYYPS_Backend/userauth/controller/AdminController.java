@@ -9,7 +9,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -24,8 +23,7 @@ import java.util.Map;
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "admin-api", description = "Admin Management APIs")
-@SecurityRequirement(name = "Bearer Authentication")
+@Tag(name = "admin-api", description = "Admin Management APIs - Uses HttpOnly Cookie Authentication")
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
 
@@ -41,10 +39,11 @@ public class AdminController {
     @GetMapping("/users")
     @Operation(
             summary = "Get all users with pagination and search",
-            description = "Retrieve all users with pagination, sorting, and search functionality"
+            description = "Retrieve all users with pagination, sorting, and search functionality. Authentication via HttpOnly cookie."
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Users retrieved successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing HttpOnly cookie"),
             @ApiResponse(responseCode = "403", description = "Admin access required")
     })
     public ResponseEntity<ApiResponseDto<Map<String, Object>>> getAllUsers(

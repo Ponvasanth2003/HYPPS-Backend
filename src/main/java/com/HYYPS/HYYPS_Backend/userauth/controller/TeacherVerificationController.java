@@ -9,7 +9,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -26,8 +25,7 @@ import java.util.Map;
 @RequestMapping("/api/teacher/verification")
 @RequiredArgsConstructor
 @Slf4j
-@Tag(name = "teacher-verification-api", description = "Teacher Verification Management APIs")
-@SecurityRequirement(name = "Bearer Authentication")
+@Tag(name = "teacher-verification-api", description = "Teacher Verification Management APIs - Uses HttpOnly Cookie Authentication")
 public class TeacherVerificationController {
 
     private final TeacherVerificationService teacherVerificationService;
@@ -36,7 +34,7 @@ public class TeacherVerificationController {
     @GetMapping("/dashboard")
     @Operation(
             summary = "Get teacher dashboard data",
-            description = "Retrieve complete teacher dashboard with verification status and timer information"
+            description = "Retrieve complete teacher dashboard with verification status and timer information. Authentication via HttpOnly cookie."
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -80,7 +78,7 @@ public class TeacherVerificationController {
                     """)
                     )
             ),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing HttpOnly cookie"),
             @ApiResponse(responseCode = "403", description = "Teacher role required")
     })
     @PreAuthorize("hasRole('TEACHER')")
@@ -99,7 +97,7 @@ public class TeacherVerificationController {
     @PostMapping("/reupload")
     @Operation(
             summary = "Reupload verification file",
-            description = "Reupload certificate or video after rejection"
+            description = "Reupload certificate or video after rejection. Authentication via HttpOnly cookie."
     )
     @ApiResponses(value = {
             @ApiResponse(
@@ -122,7 +120,8 @@ public class TeacherVerificationController {
                     )
             ),
             @ApiResponse(responseCode = "400", description = "Reupload not allowed or invalid file"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing HttpOnly cookie"),
+            @ApiResponse(responseCode = "403", description = "Teacher role required"),
             @ApiResponse(responseCode = "429", description = "Rate limit exceeded")
     })
     @PreAuthorize("hasRole('TEACHER')")
