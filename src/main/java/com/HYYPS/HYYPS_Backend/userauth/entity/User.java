@@ -9,7 +9,6 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Set;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -47,13 +46,14 @@ public class User {
     @Column(name = "profile_picture", length = 500)
     private String profilePicture;
 
-    @Enumerated(EnumType.STRING)
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
-    @Column(name = "role")
-    private Set<Role> roles;
+    // REMOVE THIS ENTIRE BLOCK:
+    // @Enumerated(EnumType.STRING)
+    // @ElementCollection(fetch = FetchType.EAGER)
+    // @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
+    // @Column(name = "role")
+    // private Set<Role> roles;
 
-    // NEW: Email history tracking
+    // Email history tracking
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<UserEmailHistory> emailHistory = new ArrayList<>();
 

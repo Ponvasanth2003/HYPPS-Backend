@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -86,8 +87,7 @@ public class AuthService {
     }
 
     /**
-     * NEW METHOD: Verify OTP, Create Account, and Auto-Login
-     * This replaces the old verifyOtpAndCreateUser method
+     * FIXED: Verify OTP, Create Account, and Auto-Login with database roles in JWT
      */
     @Transactional
     public ApiResponseDto<Map<String, Object>> verifyOtpCreateAccountAndLogin(OtpVerificationDto request, HttpServletResponse httpResponse) {
@@ -106,15 +106,14 @@ public class AuthService {
 
             SignupRequestDto signupData = objectMapper.readValue(signupJson, SignupRequestDto.class);
 
-            // Step 3: Create user account
+            // Step 3: Create user account (NO user.setRoles() - removed old field)
             User user = new User();
             user.setName(signupData.getName());
             user.setEmail(signupData.getEmail());
             user.setPassword(passwordEncoder.encode(signupData.getPassword()));
             user.setIsEmailVerified(true);
             user.setIsActive(true);
-            user.setLastLogin(LocalDateTime.now()); // Set first login time
-            user.setRoles(new HashSet<>()); // Keep for backward compatibility
+            user.setLastLogin(LocalDateTime.now());
 
             User savedUser = userRepository.save(user);
             log.info("User account created successfully for email: {}", request.getEmail());
@@ -122,7 +121,7 @@ public class AuthService {
             // Step 4: Clean up Redis
             redisTemplate.delete(signupKey);
 
-            // Step 5: Get user roles from UserRole entity (new system)
+            // Step 5: Get user roles from UserRole entity (database table: user_roles_mapping)
             List<UserRole> userRoles = userRoleRepository.findByUser(savedUser);
             List<RoleDto> roles = userRoles.stream()
                     .map(userRole -> new RoleDto(
@@ -138,12 +137,17 @@ public class AuthService {
             );
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // Generate JWT token
-            String token = tokenProvider.generateToken(authentication, savedUser.getRoles());
+            // Get role names from database and generate token
+            Set<String> roleNames = userRoles.stream()
+                    .map(ur -> ur.getRole().getRoleName())
+                    .collect(Collectors.toSet());
+
+            String token = tokenProvider.generateTokenWithRoleNames(authentication, roleNames);
 
             // Step 7: Set JWT cookie
             cookieUtil.setJwtCookie(httpResponse, token);
-            log.info("JWT token generated and set in cookie for email: {}", request.getEmail());
+            log.info("JWT token generated and set in cookie for email: {} with roles: {}",
+                    request.getEmail(), roleNames);
 
             // Step 8: Create enhanced user profile data
             Map<String, Object> userData = new HashMap<>();
@@ -159,7 +163,7 @@ public class AuthService {
             // Step 9: Prepare response
             Map<String, Object> loginResponse = new HashMap<>();
             loginResponse.put("user", userData);
-            loginResponse.put("isNewUser", true); // This is always true for signup
+            loginResponse.put("isNewUser", true);
             loginResponse.put("hasRoles", !roles.isEmpty());
             loginResponse.put("totalRoles", roles.size());
             loginResponse.put("roles", roles);
@@ -174,55 +178,11 @@ public class AuthService {
     }
 
     /**
-     * DEPRECATED: Keep for backward compatibility if needed
-     * Use verifyOtpCreateAccountAndLogin instead
-     */
-    @Deprecated
-    @Transactional
-    public ApiResponseDto<Void> verifyOtpAndCreateUser(OtpVerificationDto request) {
-        // Verify OTP
-        otpService.verifyOtp(request.getEmail(), request.getOtp());
-
-        // Create user
-        String signupKey = "signup:" + request.getEmail();
-        String signupJson = redisTemplate.opsForValue().get(signupKey);
-
-        if (signupJson == null) {
-            return ApiResponseDto.error("Signup session expired. Please register again.");
-        }
-
-        try {
-            SignupRequestDto signupData = objectMapper.readValue(signupJson, SignupRequestDto.class);
-
-            User user = new User();
-            user.setName(signupData.getName());
-            user.setEmail(signupData.getEmail());
-            user.setPassword(passwordEncoder.encode(signupData.getPassword()));
-            user.setIsEmailVerified(true);
-            user.setIsActive(true);
-            user.setRoles(new HashSet<>()); // Keep for backward compatibility
-
-            userRepository.save(user);
-            redisTemplate.delete(signupKey);
-
-            log.info("User created and temporary signup data deleted for {}", request.getEmail());
-            return ApiResponseDto.success("Account created successfully! Please login.");
-        } catch (Exception e) {
-            log.error("Failed to deserialize signup data for {}", request.getEmail(), e);
-            return ApiResponseDto.error("Internal error. Please try again.");
-        }
-    }
-
-    /**
-     * FIXED: Completely restructured login method to avoid transaction issues
-     * 1. Removed @Transactional annotation from main method
-     * 2. Authenticate first (no transaction needed)
-     * 3. Update user info in separate transaction
-     * 4. Generate token and return response
+     * FIXED: Login method with database roles in JWT token
      */
     public ApiResponseDto<Map<String, Object>> login(LoginRequestDto request, HttpServletResponse httpResponse) {
         try {
-            // Step 1: Authenticate user (NO TRANSACTION - authentication doesn't need DB writes)
+            // Step 1: Authenticate user
             Authentication authentication;
             try {
                 authentication = authenticationManager.authenticate(
@@ -239,7 +199,7 @@ public class AuthService {
             // Step 2: Set authentication in security context
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            // Step 3: Update user login info and get user details (separate transaction)
+            // Step 3: Update user login info and get user details
             Map<String, Object> loginData;
             try {
                 loginData = updateUserLoginInfo(request.getEmail());
@@ -248,20 +208,26 @@ public class AuthService {
                 return ApiResponseDto.error("Login failed. Please try again.");
             }
 
-            // Step 4: Generate JWT token (no transaction needed)
+            // Step 4: Generate JWT token with database roles
             @SuppressWarnings("unchecked")
             User user = (User) loginData.get("user");
 
+            // Get role names from UserRole entity (database table: user_roles_mapping)
+            List<UserRole> userRoles = userRoleRepository.findByUser(user);
+            Set<String> roleNames = userRoles.stream()
+                    .map(ur -> ur.getRole().getRoleName())
+                    .collect(Collectors.toSet());
+
             try {
-                String token = tokenProvider.generateToken(authentication, user.getRoles());
-                // Step 5: Set JWT cookie
+                String token = tokenProvider.generateTokenWithRoleNames(authentication, roleNames);
                 cookieUtil.setJwtCookie(httpResponse, token);
+                log.info("JWT token generated for {} with roles: {}", request.getEmail(), roleNames);
             } catch (Exception e) {
                 log.error("Failed to generate JWT token for email: {}", request.getEmail(), e);
                 return ApiResponseDto.error("Login failed. Please try again.");
             }
 
-            // Step 6: Return response
+            // Step 5: Return response
             @SuppressWarnings("unchecked")
             Map<String, Object> loginResponse = (Map<String, Object>) loginData.get("response");
 
@@ -275,7 +241,7 @@ public class AuthService {
     }
 
     /**
-     * FIXED: Enhanced error handling and transaction management
+     * Update user login info with proper transaction management
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Map<String, Object> updateUserLoginInfo(String email) {
@@ -288,7 +254,7 @@ public class AuthService {
             user.setLastLogin(LocalDateTime.now());
             user = userRepository.save(user);
 
-            // Get user roles from UserRole entity (new system)
+            // Get user roles from UserRole entity (database table: user_roles_mapping)
             List<UserRole> userRoles = userRoleRepository.findByUser(user);
             List<RoleDto> roles = userRoles.stream()
                     .map(userRole -> new RoleDto(
@@ -329,7 +295,7 @@ public class AuthService {
     }
 
     /**
-     * FIXED: Enhanced token refresh with better error handling
+     * Token refresh with database roles
      */
     public ApiResponseDto<Void> refreshToken(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
         try {
@@ -352,11 +318,18 @@ public class AuthService {
                     email, null, new HashSet<>()
             );
 
-            // Generate new token
-            String newToken = tokenProvider.generateToken(authentication, user.getRoles());
+            // Get role names from UserRole entity (database table: user_roles_mapping)
+            List<UserRole> userRoles = userRoleRepository.findByUser(user);
+            Set<String> roleNames = userRoles.stream()
+                    .map(ur -> ur.getRole().getRoleName())
+                    .collect(Collectors.toSet());
+
+            // Generate new token with actual roles from database
+            String newToken = tokenProvider.generateTokenWithRoleNames(authentication, roleNames);
 
             // Set new JWT cookie
             cookieUtil.setJwtCookie(httpResponse, newToken);
+            log.info("Token refreshed for {} with roles: {}", email, roleNames);
 
             return ApiResponseDto.success("Token refreshed successfully");
         } catch (Exception e) {
@@ -450,11 +423,11 @@ public class AuthService {
     }
 
     /**
-     * FIXED: Restructured social login to avoid transaction issues
+     * Social login with database roles in JWT
      */
     public ApiResponseDto<Map<String, Object>> socialLogin(SocialLoginRequestDto request, HttpServletResponse httpResponse) {
         try {
-            // Step 1: Verify social token and get user info (no transaction needed)
+            // Step 1: Verify social token and get user info
             SocialUserInfo socialUserInfo;
             try {
                 socialUserInfo = socialAuthService.verifyAndGetUserInfo(request);
@@ -463,7 +436,7 @@ public class AuthService {
                 return ApiResponseDto.error("Social authentication failed");
             }
 
-            // Step 2: Create or get user and update login info (separate transaction)
+            // Step 2: Create or get user and update login info
             Map<String, Object> loginData;
             try {
                 loginData = createOrUpdateSocialUser(socialUserInfo);
@@ -472,7 +445,7 @@ public class AuthService {
                 return ApiResponseDto.error("Failed to process social login");
             }
 
-            // Step 3: Generate JWT token and set cookie (no transaction needed)
+            // Step 3: Generate JWT token with database roles and set cookie
             @SuppressWarnings("unchecked")
             User user = (User) loginData.get("user");
             @SuppressWarnings("unchecked")
@@ -485,11 +458,19 @@ public class AuthService {
                 );
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                // Generate JWT token
-                String token = tokenProvider.generateToken(authentication, user.getRoles());
+                // Get role names from UserRole entity (database table: user_roles_mapping)
+                List<UserRole> userRoles = userRoleRepository.findByUser(user);
+                Set<String> roleNames = userRoles.stream()
+                        .map(ur -> ur.getRole().getRoleName())
+                        .collect(Collectors.toSet());
+
+                // Generate JWT token with actual roles from database
+                String token = tokenProvider.generateTokenWithRoleNames(authentication, roleNames);
 
                 // Set JWT cookie
                 cookieUtil.setJwtCookie(httpResponse, token);
+                log.info("Social login token generated for {} with roles: {}",
+                        socialUserInfo.getEmail(), roleNames);
             } catch (Exception e) {
                 log.error("Failed to generate JWT token for social login: {}", socialUserInfo.getEmail(), e);
                 return ApiResponseDto.error("Failed to complete social login");
@@ -517,14 +498,13 @@ public class AuthService {
             boolean isNewUser = false;
 
             if (user == null) {
-                // Create new user
+                // Create new user (NO user.setRoles() - removed old field)
                 user = new User();
                 user.setName(socialUserInfo.getName());
                 user.setEmail(socialUserInfo.getEmail());
-                user.setPassword(passwordEncoder.encode("SOCIAL_LOGIN_" + System.currentTimeMillis())); // Dummy password
-                user.setIsEmailVerified(true); // Social providers verify emails
+                user.setPassword(passwordEncoder.encode("SOCIAL_LOGIN_" + System.currentTimeMillis()));
+                user.setIsEmailVerified(true);
                 user.setIsActive(true);
-                user.setRoles(new HashSet<>());
                 user = userRepository.save(user);
                 isNewUser = true;
                 log.info("New user created via social login: {}", socialUserInfo.getEmail());
@@ -534,7 +514,7 @@ public class AuthService {
             user.setLastLogin(LocalDateTime.now());
             user = userRepository.save(user);
 
-            // Get user roles from UserRole entity (new system)
+            // Get user roles from UserRole entity (database table: user_roles_mapping)
             List<UserRole> userRoles = userRoleRepository.findByUser(user);
             List<RoleDto> roles = userRoles.stream()
                     .map(userRole -> new RoleDto(
@@ -575,16 +555,40 @@ public class AuthService {
         }
     }
 
+    /**
+     * DEPRECATED: Old method kept for backward compatibility
+     */
     @Deprecated
-    private UserProfileDto convertToUserProfile(User user) {
-        UserProfileDto profile = new UserProfileDto();
-        profile.setId(user.getId());
-        profile.setName(user.getName());
-        profile.setEmail(user.getEmail());
-        profile.setIsEmailVerified(user.getIsEmailVerified());
-        profile.setRoles(user.getRoles());
-        profile.setCreatedAt(user.getCreatedAt());
-        profile.setLastLogin(user.getLastLogin());
-        return profile;
+    @Transactional
+    public ApiResponseDto<Void> verifyOtpAndCreateUser(OtpVerificationDto request) {
+        otpService.verifyOtp(request.getEmail(), request.getOtp());
+
+        String signupKey = "signup:" + request.getEmail();
+        String signupJson = redisTemplate.opsForValue().get(signupKey);
+
+        if (signupJson == null) {
+            return ApiResponseDto.error("Signup session expired. Please register again.");
+        }
+
+        try {
+            SignupRequestDto signupData = objectMapper.readValue(signupJson, SignupRequestDto.class);
+
+            // Create user (NO user.setRoles() - removed old field)
+            User user = new User();
+            user.setName(signupData.getName());
+            user.setEmail(signupData.getEmail());
+            user.setPassword(passwordEncoder.encode(signupData.getPassword()));
+            user.setIsEmailVerified(true);
+            user.setIsActive(true);
+
+            userRepository.save(user);
+            redisTemplate.delete(signupKey);
+
+            log.info("User created and temporary signup data deleted for {}", request.getEmail());
+            return ApiResponseDto.success("Account created successfully! Please login.");
+        } catch (Exception e) {
+            log.error("Failed to deserialize signup data for {}", request.getEmail(), e);
+            return ApiResponseDto.error("Internal error. Please try again.");
+        }
     }
 }

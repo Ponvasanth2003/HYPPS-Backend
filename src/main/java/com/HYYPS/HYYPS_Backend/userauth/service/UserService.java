@@ -449,7 +449,7 @@ public class UserService {
         profile.setName(user.getName());
         profile.setEmail(user.getEmail());
         profile.setIsEmailVerified(user.getIsEmailVerified());
-        profile.setRoles(user.getRoles());
+//        profile.setRoles(user.getRoles());
         profile.setCreatedAt(user.getCreatedAt());
         profile.setLastLogin(user.getLastLogin());
         return profile;

@@ -1,7 +1,9 @@
 package com.HYYPS.HYYPS_Backend.userauth.security;
 
 import com.HYYPS.HYYPS_Backend.userauth.entity.User;
+import com.HYYPS.HYYPS_Backend.userauth.entity.UserRole;
 import com.HYYPS.HYYPS_Backend.userauth.repository.UserRepository;
+import com.HYYPS.HYYPS_Backend.userauth.repository.UserRoleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -18,6 +20,7 @@ import java.util.stream.Collectors;
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
+    private final UserRoleRepository userRoleRepository;
 
     @Override
     @Transactional
@@ -25,8 +28,10 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findActiveUserByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-        List<SimpleGrantedAuthority> authorities = user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.name()))
+        // FIXED: Get roles from UserRole entity (database table: user_roles_mapping)
+        List<UserRole> userRoles = userRoleRepository.findByUser(user);
+        List<SimpleGrantedAuthority> authorities = userRoles.stream()
+                .map(userRole -> new SimpleGrantedAuthority("ROLE_" + userRole.getRole().getRoleName()))
                 .collect(Collectors.toList());
 
         return org.springframework.security.core.userdetails.User.builder()
